@@ -17,7 +17,8 @@
 # 4st:
 ## //FAZER O APP RODAR NA PORTA 3001:
 	app.listen(3001, ()=>console.log("SERVER is live at port: 3001"));
-### //para testar basta abrir o terminal e inserir o comando: node index.js
+## //para testar basta abrir o terminal e inserir o comando: 
+   	node index.js
 
 # 5st:
 ## //COM O APP RODANDO NO SERVIDOR LOCAL, VAMOS COLOCÁ-LO EM UM SERVIÇO EXTERNO USANDO O (NGROK)
@@ -34,8 +35,8 @@
 # 7st:
 ## //AGORA PARA TRABALHAR COM O NOSSO AGENTE DO DIALOGFLOW DEVEMOS INSTALAR AS DEPENDENCIAS DO DIALOGFLOW-FULFILLMENT E DO ACTIONS-ON-GOOGLE
    ### para isso usamos os comandos:
-		npm i dialogflow-fulfillment
-		npm i actions-on-google
+	npm i dialogflow-fulfillment
+	npm i actions-on-google
 
 # 8st:
 ## //PARA FAZER REQUISIÇÕES HTTP USAREMOS O FETCH
