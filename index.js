@@ -3,6 +3,8 @@ const express = require('express');
 const { WebhookClient } = require('dialogflow-fulfillment');
 const { response, text } = require('express');
 const app = express();
+const db = require('./db.js');
+const { Pool, Client } = require("pg");
 
 //Imports para o Natural Language Understanding
 //const fs = require('fs');
@@ -24,32 +26,13 @@ app.post('/', express.json(), (request, response) => {
     const agent = new WebhookClient({ request, response });
     //console.log('Dialogflow Request headers: ' + JSON.stringify(request.headers));
     //console.log('Dialogflow Request body: ' + JSON.stringify(request.body));
-
-    var sentimento = {
-        sentimento: "neutro"
-    }
-
-    // function welcome(agent) {
-    //     var payloadData = {
-    //         "richContent": [
-    //           [
-    //             {
-    //               "type": "accordion",
-    //               "title": "Accordion title",
-    //               "subtitle": "Accordion subtitle",
-    //               "image": {
-    //                 "src": {
-    //                   "rawUrl": "https://example.com/images/logo.png"
-    //                 }
-    //               },
-    //               "text": "Accordion text"
-    //             }
-    //           ]
-    //         ]
-    //       }
-
-    //       agent.add(new Payload(agent.UNSPECIFIED, payloadData, {sendAsMessage: true, rawPayLoad: true}));
-    // }
+    const pool = new Pool({
+        user: 'postgres',
+        host: 'localhost',
+        database: 'webhook_dialogflow',
+        password: 'postdba',
+        port: 5432
+    });
 
     function soma(agent) {
         const n1 = agent.parameters.number1;
@@ -57,7 +40,6 @@ app.post('/', express.json(), (request, response) => {
         var soma = n1 + n2;
 
         agent.add(`Ao somar ` + n1 + ` com ` + n2 + ` temos como resultado: ` + soma);
-
     }
 
     async function cep(agent) {
@@ -89,28 +71,51 @@ app.post('/', express.json(), (request, response) => {
 
     function analiseSentimento(agent) {
         const textUser = request.body.queryResult.queryText;
-        var analiseResult = "neutro";
-        nlu.analyze(
-            {
-              text: textUser, // Buffer or String
-              features: {
-                sentiment: {},
-                emotion: {}
-              }
-            })
-            .then(response => {
-              console.log(JSON.stringify(response.result, null, 2));
-              analiseResult = response.result.sentiment.document.label;
-              console.log("Sentimento: "+analiseResult);
-            })
-            .catch(err => {
-              console.log('error: ', err);
-            });
+
+        var sentimento = {
+            analise: "Não identificado",
+            pontuacao: "0",
+            frase: textUser
+        }
 
         console.log("texto: " + textUser);
-        agent.add("Sentimento: "+analiseResult);
+
+        return nlu.analyze(
+            {
+                text: textUser, // Buffer or String
+                features: {
+                    sentiment: {},
+                    emotion: {}
+                }
+            })
+            .then(response => {
+                console.log(JSON.stringify(response.result, null, 2)); // exibir o retorno da requisição no log
+
+                sentimento.analise = response.result.sentiment.document.label;
+                sentimento.pontuacao = response.result.sentiment.document.score;
+
+                console.log("Sentimento: " + sentimento.analise);
+                agent.add("Sentimento: " + sentimento.analise + "(" + sentimento.pontuacao + ")");
+
+                //chamar função para inserir a analise, a pontuação e a frase na tabela
+                inserir(sentimento.analise, sentimento.pontuacao, sentimento.frase);
+            })
+            .catch(err => {
+                console.log('error: ', err);
+                agent.add("Sentimento: " + sentimento.analise);
+            });
     }
 
+    function inserir(analise, pontuacao, frase){
+            const sql = 'INSERT INTO AnaliseSentimento(sentimento, pontuacao, frase) VALUES ($1,$2, $3);';
+            const values = [analise, pontuacao, frase];
+
+            pool.query(sql, values);
+
+            pool.end();
+
+            console.log("dados inseridos");
+    }
 
     // Run the proper function handler based on the matched Dialogflow intent name
     let intentMap = new Map();
