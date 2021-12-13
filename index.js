@@ -35,8 +35,8 @@ app.post('/', express.json(), (request, response) => {
     });
 
     function soma(agent) {
-        const n1 = agent.parameters.number1;
-        const n2 = agent.parameters.number2;
+        const n1 = parseInt(agent.parameters.number1);
+        const n2 = parseInt(agent.parameters.number2);
         var soma = n1 + n2;
 
         agent.add(`Ao somar ` + n1 + ` com ` + n2 + ` temos como resultado: ` + soma);
@@ -94,8 +94,8 @@ app.post('/', express.json(), (request, response) => {
                 sentimento.analise = response.result.sentiment.document.label;
                 sentimento.pontuacao = response.result.sentiment.document.score;
 
-                console.log("Sentimento: " + sentimento.analise);
-                agent.add("Sentimento: " + sentimento.analise + "(" + sentimento.pontuacao + ")");
+                console.log("Sentimento: " + sentimento.analise + "(" + sentimento.pontuacao + ")");
+                agent.add("Obrigado pelo seu feedback, quando precisar é só me chamar ;)");
 
                 //chamar função para inserir a analise, a pontuação e a frase na tabela
                 inserir(sentimento.analise, sentimento.pontuacao, sentimento.frase);
@@ -122,6 +122,9 @@ app.post('/', express.json(), (request, response) => {
     intentMap.set('Soma', soma);
     intentMap.set('CEP', cep);
     intentMap.set('AnaliseSentimento - fallback', analiseSentimento);
+    intentMap.set('Avaliacao_atendimento - yes - fallback', analiseSentimento);
+    intentMap.set('Avaliacao_atendimento - no - fallback', analiseSentimento);
+    
     //intentMap.set('Default Welcome Intent', welcome);
     // intentMap.set('your intent name here', yourFunctionHandler);
 
