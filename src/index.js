@@ -23,7 +23,7 @@ app.get('/', (req, res) => {
 });
 
 app.post('/', express.json(), (request, response) => {
-  const agent = new WebhookClient({ request, response });
+    const agent = new WebhookClient({ request, response });
     //console.log('Dialogflow Request headers: ' + JSON.stringify(request.headers));
     //console.log('Dialogflow Request body: ' + JSON.stringify(request.body));
     const pool = new Pool({
