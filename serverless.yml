@@ -1,0 +1,28 @@
+service: nodeless
+
+plugins:
+  - serverless-plugin-typescript
+package:
+  individually: true
+
+provider:
+  name: aws
+  runtime: nodejs14.x
+
+functions:
+  dialogflow-webhook:
+    handler: src/index.handler
+    memorySize: 256
+    timeout: 60
+    package:
+      patterns:
+        - "!**"
+        - "./package.json"
+        - "./package-lock.json"
+        - "node_modules/**"
+        - "src/index.js"
+    description: dialogflow-webhook to Assistente Campus Bot.
+    events:
+      - http: GET /
+      - http: POST /
+
