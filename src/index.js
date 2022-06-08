@@ -6,15 +6,6 @@ const { Pool, Client } = require("pg");
 //Imports para o Natural Language Understanding
 const NaturalLanguageUnderstandingV1 = require("ibm-watson/natural-language-understanding/v1");
 const { IamAuthenticator } = require("ibm-watson/auth");
-const nlu = new NaturalLanguageUnderstandingV1({
-  authenticator: new IamAuthenticator({
-    apikey: "DdZxcNjDmhfw8NFdsac5xsuHIRO4m-t0h5619itNtUar",
-  }),
-  version: "2018-11-16",
-  serviceUrl:
-    "https://api.us-south.natural-language-understanding.watson.cloud.ibm.com/instances/6420bb46-ce9c-4e45-a997-9b59060889cc",
-});
-
 process.env.DEBUG = "dialogflow:debug"; // enables lib debugging statements
 
 const serverless = require("serverless-http");
@@ -29,6 +20,16 @@ app.post("/", express.json(), (request, response) => {
   const agent = new WebhookClient({ request, response });
   //console.log('Dialogflow Request headers: ' + JSON.stringify(request.headers));
   //console.log('Dialogflow Request body: ' + JSON.stringify(request.body));
+
+  const nlu = new NaturalLanguageUnderstandingV1({
+    authenticator: new IamAuthenticator({
+      apikey: "DdZxcNjDmhfw8NFdsac5xsuHIRO4m-t0h5619itNtUar",
+    }),
+    version: "2018-11-16",
+    serviceUrl:
+      "https://api.us-south.natural-language-understanding.watson.cloud.ibm.com/instances/6420bb46-ce9c-4e45-a997-9b59060889cc",
+  });
+  
   const pool = new Pool({
     user: "postgres",
     host: "joaquimkayo.japaneast.cloudapp.azure.com",
@@ -81,7 +82,7 @@ app.post("/", express.json(), (request, response) => {
     return fetch(`https://viacep.com.br/ws/${cep}/json/`);
   }
 
-  function analiseSentimento(agent) {
+  async function analiseSentimento(agent) {
     const textUser = request.body.queryResult.queryText;
 
     var sentimento = {
@@ -91,50 +92,72 @@ app.post("/", express.json(), (request, response) => {
     };
 
     console.log("texto: " + textUser);
-
-    return nlu
-      .analyze({
-        text: textUser, // Buffer or String
-        features: {
-          sentiment: {},
-          emotion: {},
-        },
-      })
-      .then((response) => {
-        console.log(JSON.stringify(response.result, null, 2)); // exibir o retorno da requisição no log
+    try{
+        const response = await nlu.analyze({
+            text: textUser, // Buffer or String
+            features: {
+            sentiment: {},
+            emotion: {},
+            },
+        });
+        console.log("response",response);
+        console.log("NLU - Response",JSON.stringify(response.result, null, 2)); // exibir o retorno da requisição no log
 
         sentimento.analise = response.result.sentiment.document.label;
         sentimento.pontuacao = response.result.sentiment.document.score;
 
         console.log(
-          "Sentimento: " + sentimento.analise + "(" + sentimento.pontuacao + ")"
+            "Sentimento: " + sentimento.analise + "(" + sentimento.pontuacao + ")"
         );
         agent.add(
-          "Obrigado pelo seu feedback, quando precisar é só me chamar ;)"
+            "Obrigado pelo seu feedback, quando precisar é só me chamar ;)"
         );
 
         //chamar função para inserir a analise, a pontuação e a frase na tabela
-        inserir(sentimento.analise, sentimento.pontuacao, sentimento.frase);
-      })
-      .catch((err) => {
+        await inserir(sentimento.analise, parseFloat(sentimento.pontuacao), sentimento.frase);
+    }catch(err){
         console.log("error: ", err);
         agent.add(
           "Obrigado pelo seu feedback, quando precisar é só me chamar ;)"
         );
-        inserir("N/A", 0, sentimento.frase);
-      });
+        await inserir("N/A", 0, sentimento.frase);
+    }
   }
 
-  function inserir(analise, pontuacao, frase) {
-    const sql =
-      "INSERT INTO AnaliseSentimento(sentimento, pontuacao, frase) VALUES ($1,$2,$3);";
-    const values = [analise, pontuacao, frase];
-    try {
-      pool.query(sql, values);
-      pool.end();
-      console.log("dados inseridos");
-    } catch (e) {
-      console.error("Erro ao inserir dados", e);
+  async function inserir(analise, pontuacao, frase) {
+    const sql = `INSERT INTO AnaliseSentimento(sentimento, pontuacao, frase) VALUES ('${analise}',${pontuacao},'${frase}')`;
+    console.log("SQL", sql);
+    
+    try{
+        const res = await pool.query(sql);
+
+        // log the response to console
+        console.log("Postgres response:", res);
+
+        // get the keys for the response object
+        var keys = Object.keys(res);
+
+        // log the response keys to console
+        console.log("\nkeys type:", typeof keys);
+        console.log("keys for Postgres response:", keys);
+
+        if (res.rowCount > 0) {
+            console.log("# of records inserted:", res.rowCount);
+        } else {
+            console.log("No records were inserted.");
+        }
+    }catch(err){
+        // log the error to console
+        console.error("Postgres INSERT error:", err);
+
+        // get the keys for the error
+        var keys = Object.keys(err);
+        console.error("\nkeys for Postgres error:", keys);
+
+        // get the error position of SQL string
+        console.error("Postgres error position:", err.position);
+    }finally{
+        await pool.end();
     }
   }
 
